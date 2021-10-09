@@ -19,8 +19,9 @@ fn main() {
     let buff = ArtCommand::Poll(Poll::default()).write_to_buffer().unwrap();
     socket.send_to(&buff, &broadcast_addr).unwrap();
 
-    let mut zerobuf :[u8; 510] = [0u8; 510];
-    let mut onebuf :[u8; 258] = [0u8; 258];
+    let mut zerovec = Vec::with_capacity(512);
+    let mut onevec = Vec::with_capacity(512);
+
     let mut ips = Vec::new();
     loop {
         let mut buffer = [0u8; 1024];
@@ -44,7 +45,7 @@ fn main() {
                 socket.send_to(&bytes, &addr).unwrap();
                 */
             }
-            ArtCommand::Output(output) => {
+            ArtCommand::Output(output) => unsafe {
                 if ips.len() == 0 {
                     ips = lookup_host("udpled_0001.local").unwrap();
                     println!("len {}", ips.len());
@@ -59,17 +60,19 @@ fn main() {
                     let length = output.length;
                     println!("len {:?}", length);
                     */
+
                     if output.physical == 0 {
-                        zerobuf.copy_from_slice(output.data.inner.as_slice());
+                        zerovec.set_len(output.data.inner.len());
+                        zerovec.copy_from_slice(output.data.inner.as_slice());
                     }
                     if output.physical == 1 {
-                        onebuf.copy_from_slice(output.data.inner.as_slice());
+                        onevec.set_len(output.data.inner.len());
+                        onevec.copy_from_slice(output.data.inner.as_slice());
                     }
 
-                    let mut zerovec = zerobuf.to_vec();
-                    let mut onevec = onebuf.to_vec();
-                    zerovec.append(&mut onevec);
-                    let sendbuffer = zerovec.as_slice();
+                    let mut concatvec = zerovec.clone();
+                    concatvec.append(&mut onevec);
+                    let sendbuffer = concatvec.as_slice();
 
                     ledsocket.send_to(&sendbuffer, ips.get(0).unwrap().to_string() + ":8888").expect("failed to send data");
                 }
