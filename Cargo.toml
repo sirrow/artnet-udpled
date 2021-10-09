@@ -8,3 +8,4 @@ edition = "2018"
 [dependencies]
 artnet_protocol = { git = "https://github.com/sirrow/artnet_protocol.git", branch = "master"}
 anyhow = "1.0"
+dns-lookup = "1.0.8"

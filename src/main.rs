@@ -1,6 +1,7 @@
 use artnet_protocol::*;
 use std::net::{ToSocketAddrs, UdpSocket};
 use std::time::Duration;
+use dns_lookup::lookup_host;
 
 fn main() {
     let ledsocket = UdpSocket::bind("0.0.0.0:9999").expect("failed to bind socket");
@@ -20,6 +21,7 @@ fn main() {
 
     let mut zerobuf :[u8; 510] = [0u8; 510];
     let mut onebuf :[u8; 258] = [0u8; 258];
+    let mut ips = Vec::new();
     loop {
         let mut buffer = [0u8; 1024];
         let (length, addr) = socket.recv_from(&mut buffer).unwrap();
@@ -43,25 +45,34 @@ fn main() {
                 */
             }
             ArtCommand::Output(output) => {
-                /*
-                let version = output.version;
-                println!("version {:?}", version);
-                let length = output.length;
-                println!("len {:?}", length);
-                */
-                if output.physical == 0 {
-                    zerobuf.copy_from_slice(output.data.inner.as_slice());
+                if ips.len() == 0 {
+                    ips = lookup_host("udpled_0001.local").unwrap();
+                    println!("len {}", ips.len());
+                    if ips.len() != 0 {
+                        println!("addr {}",ips.get(0).unwrap().to_string());
+                    }
                 }
-                if output.physical == 1 {
-                    onebuf.copy_from_slice(output.data.inner.as_slice());
+                else {
+                    /*
+                    let version = output.version;
+                    println!("version {:?}", version);
+                    let length = output.length;
+                    println!("len {:?}", length);
+                    */
+                    if output.physical == 0 {
+                        zerobuf.copy_from_slice(output.data.inner.as_slice());
+                    }
+                    if output.physical == 1 {
+                        onebuf.copy_from_slice(output.data.inner.as_slice());
+                    }
+
+                    let mut zerovec = zerobuf.to_vec();
+                    let mut onevec = onebuf.to_vec();
+                    zerovec.append(&mut onevec);
+                    let sendbuffer = zerovec.as_slice();
+
+                    ledsocket.send_to(&sendbuffer, ips.get(0).unwrap().to_string() + ":8888").expect("failed to send data");
                 }
-
-                let mut zerovec = zerobuf.to_vec();
-                let mut onevec = onebuf.to_vec();
-                zerovec.append(&mut onevec);
-                let sendbuffer = zerovec.as_slice();
-
-                ledsocket.send_to(&sendbuffer, "192.168.2.51:8888").expect("failed to send data");
             }
             _ => {}
         }
